@@ -1,65 +1,29 @@
 import streamlit as st
-import conver
-from conver import URLToAudioConverter
-from dataclasses import dataclass
+import google.generativeai as genai
+import pandas as pd
+from config import API_KEY
 
-st.set_page_config(
-    page_title="NarrateLink",
-    page_icon="🔊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Configure Gemini API
+genai.configure(api_key=API_KEY)
 
-@dataclass
-class ConversationConfig:
-    max_words: int = 15000
-    prefix_url: str = "https://r.jina.ai/"
-    model_name: str = "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
-
-if "audio_file" not in st.session_state:
-    st.session_state.audio_file = None
-
-with st.sidebar:
-    st.image("https://img.icons8.com/clouds/100/000000/podcast.png", width=100)
-    st.title("Settings")
+def get_pollution_data():
+    """Fetches industries and other causes of air pollution using Gemini API."""
+    prompt = "List major industries and other causes of air pollution in a structured format. Include industry types and specific pollutants they emit."
+    model = genai.GenerativeModel("gemini-pro")
+    response = model.generate_content(prompt)
     
-    st.subheader("🎤 Voice Settings")
-    voices_dict = {
-        "Asteria (English - US, Female)": "aura-asteria-en",
-        "Luna (English - US, Female)": "aura-luna-en",
-        "Stella (English - US, Female)": "aura-stella-en",
-        "Athena (English - UK, Female)": "aura-athena-en",
-        "Hera (English - US, Female)": "aura-hera-en",
-        "Orion (English - US, Male)": "aura-orion-en",
-        "Arcas (English - US, Male)": "aura-arcas-en",
-        "Perseus (English - US, Male)": "aura-perseus-en",
-        "Angus (English - Ireland, Male)": "aura-angus-en",
-        "Orpheus (English - US, Male)": "aura-orpheus-en",
-        "Helios (English - UK, Male)": "aura-helios-en",
-        "Zeus (English - US, Male)": "aura-zeus-en",
-    }
+    # Parse response into structured data (assuming CSV-like output)
+    data = []
+    for line in response.text.split("\n"):
+        columns = line.split(",")
+        if len(columns) == 3:  # Expecting 3 columns (Industry, Cause, Pollutants)
+            data.append(columns)
+    
+    return pd.DataFrame(data, columns=["Industry", "Cause", "Pollutants"])
 
-    voices = list(voices_dict.keys())
+# Streamlit UI
+st.title("Air Pollution Sources")
+st.write("This table presents industries and other causes of air pollution.")
 
-    voice_1 = st.selectbox("Speaker 1", voices, index=7)
-    voice_2 = st.selectbox("Speaker 2", voices, index=0)
-
-st.title("🎧 NarrateLink")
-st.caption("Transform articles into engaging podcasts instantly")
-
-# Replacing user input with a fixed website link
-st.markdown("### Source Website")
-st.markdown("[Visit AQI](https://www.aqi.in/us)", unsafe_allow_html=True)
-
-st.divider()
-st.markdown(
-    """
-    <div style='text-align: center'>
-        <p>Want a secure, private text-to-speech solution? Check out 
-        <a href='https://huggingface.co/spaces/eswardivi/Podcastify'>Podcastify</a> 
-        </p>
-        the open-source alternative that runs entirely on your device.
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+data = get_pollution_data()
+st.dataframe(data)
